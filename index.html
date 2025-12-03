@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mastering Magic: Hear the Difference - High-Conversion Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* Dark background */
+        }
+        .cta-button {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.5); /* Indigo glow */
+        }
+        .audio-container {
+            border: 2px solid #374151; /* Subtle border for separation */
+        }
+        /* Fluid volume slider styling for consistent cross-browser look */
+        .volume-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            background: #374151;
+            border-radius: 4px;
+            outline: none;
+            transition: background 0.2s;
+        }
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4f46e5; /* Indigo */
+            cursor: pointer;
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.3);
+        }
+        .volume-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4f46e5;
+            cursor: pointer;
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.3);
+        }
+        .star {
+            color: #fbbf24; /* Amber 400 for stars */
+            display: inline-block;
+            margin-right: 1px;
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen flex flex-col items-center p-4 sm:p-8">
+    <!-- Firebase Imports (Required for all Firestore-enabled apps) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase variables for the script block below
+        window.firebaseApp = null;
+        window.db = null;
+        window.auth = null;
+        window.userId = null;
+        window.isFirebaseReady = false;
+
+        setLogLevel('Debug');
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase and Auth
+        const initializeFirebase = async () => {
+            try {
+                window.firebaseApp = initializeApp(firebaseConfig);
+                window.db = getFirestore(window.firebaseApp);
+                window.auth = getAuth(window.firebaseApp);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(window.auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(window.auth);
+                }
+                
+                window.userId = window.auth.currentUser?.uid || crypto.randomUUID();
+                window.isFirebaseReady = true;
+                console.log("Firebase initialized. User ID:", window.userId);
+
+                // Attach the submission function to the global scope after initialization
+                window.submitMasterRequest = async (event) => {
+                    event.preventDefault();
+                    if (!window.isFirebaseReady) {
+                        alert('Error: Firebase not initialized. Please try again.');
+                        return;
+                    }
+                    
+                    const form = event.target;
+                    const submissionData = {
+                        trackName: form.trackName.value,
+                        artistName: form.artistName.value,
+                        email: form.email.value,
+                        mixLink: form.mixLink.value,
+                        notes: form.notes.value,
+                        timestamp: new Date().toISOString(),
+                        userId: window.userId,
+                        appId: appId
+                    };
+
+                    try {
+                        const userRequestsCollectionRef = collection(window.db, `/artifacts/${appId}/users/${window.userId}/master_requests`);
+                        await addDoc(userRequestsCollectionRef, submissionData);
+                        
+                        // Close modal and show success message
+                        document.getElementById('submissionModal').classList.add('hidden');
+                        showStatusMessage('✅ Success! Your free demo master request has been submitted. We will contact you soon!', 'bg-green-600');
+                        form.reset();
+                    } catch (e) {
+                        console.error("Error submitting document: ", e);
+                        showStatusMessage(`❌ Submission Failed: ${e.message}`, 'bg-red-600');
+                    }
+                };
+
+            } catch (error) {
+                console.error("Firebase initialization or sign-in failed:", error);
+                showStatusMessage(`❌ Initialization Error: ${error.message}`, 'bg-red-600');
+            }
+        };
+
+        // Call initialization function on window load
+        window.addEventListener('load', initializeFirebase);
+        
+        // Expose helper functions for modal control
+        window.openModal = () => {
+            document.getElementById('submissionModal').classList.remove('hidden');
+        };
+
+        window.closeModal = () => {
+            document.getElementById('submissionModal').classList.add('hidden');
+        };
+
+        window.showStatusMessage = (message, bgColor) => {
+            const statusBox = document.getElementById('statusMessage');
+            statusBox.textContent = message;
+            statusBox.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-xl text-white ${bgColor} transition-transform duration-300 ease-out transform translate-y-0 z-50`;
+            setTimeout(() => {
+                statusBox.classList.add('translate-y-full');
+            }, 5000);
+            setTimeout(() => {
+                statusBox.className = 'hidden';
+            }, 5300);
+        }
+    </script>
+    
+    <!-- Status Message Box (used instead of alerts) -->
+    <div id="statusMessage" class="hidden"></div>
+    
+    <!-- Header and Value Proposition (Fluid Typography) -->
+    <header class="text-center max-w-4xl w-full mb-12">
+        <h1 class="text-4xl sm:text-6xl font-extrabold text-indigo-400 mb-4 tracking-tight">
+            The Final Step. The Definitive Difference.
+        </h1>
+        <p class="text-xl sm:text-2xl text-gray-300 font-light max-w-3xl mx-auto">
+            Stop leaving $1,000s in quality on the table. Listen to how our mastering elevates your mix to commercial standards.
+        </p>
+    </header>
+
+    <!-- Interactive Before & After Section (Flexible Layout) -->
+    <section class="w-full max-w-4xl bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl mb-12 audio-container">
+        <h2 class="text-3xl font-bold mb-6 text-center text-gray-100">Hear The Transformation</h2>
+
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+            
+            <!-- Metadata & Title (Adapts to text-align: left on md screens) -->
+            <div class="w-full md:w-1/3 text-center md:text-left">
+                <p class="text-sm font-medium text-gray-400">Track: Electro Pop Demo (Client: ARIA)</p>
+                <p class="text-2xl font-semibold text-white">"Neon Rush"</p>
+                <!-- Desktop CTA: Hidden on mobile, shown on md screens -->
+                <div class="mt-4 hidden md:block">
+                    <button onclick="openModal()" id="cta-bottom" class="cta-button bg-green-500 hover:bg-green-600 text-gray-900 font-bold py-3 px-6 rounded-lg text-lg shadow-lg">
+                        I'm Convinced. Master My Track Now!
+                    </button>
+                </div>
+            </div>
+
+            <!-- Interactive Player Interface (Takes remaining width) -->
+            <div class="w-full md:w-2/3 space-y-4">
+                
+                <!-- Toggle Button (Full width on mobile, constrained on desktop) -->
+                <div class="flex justify-center">
+                    <button id="toggleButton" class="w-full sm:w-80 h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg rounded-full transition duration-300 shadow-xl">
+                        SWITCH TO: MASTERED (AFTER)
+                    </button>
+                </div>
+                
+                <!-- Volume Fader / Playback (Uses Flexbox for alignment) -->
+                <div class="flex items-center gap-4 bg-gray-900 p-4 rounded-xl">
+                    <button id="playPauseButton" class="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center transition duration-200">
+                        <!-- Play Icon -->
+                        <svg id="playIcon" class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                        </svg>
+                        <!-- Pause Icon -->
+                        <svg id="pauseIcon" class="w-6 h-6 text-white hidden" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <!-- Volume Meter is fluid using flex-grow -->
+                    <div id="volumeMeter" class="flex-grow h-2 bg-red-800 rounded-full transition-all duration-100 ease-in-out"></div>
+                    <!-- Volume Slider has a fixed width w-20, which is fine for small controls -->
+                    <input type="range" min="0" max="100" value="70" class="volume-slider w-20" id="masterVolume">
+                </div>
+
+                <!-- Descriptive Labels -->
+                <div class="flex justify-between text-sm font-semibold text-gray-400 px-2 pt-2">
+                    <span id="currentLabel" class="text-yellow-400">Current: MIXED (BEFORE)</span>
+                    <span>Click 'Switch' to compare loudness and clarity.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile CTA: Shown on mobile, hidden on md screens -->
+        <div class="mt-6 md:hidden">
+            <button onclick="openModal()" id="cta-mobile" class="cta-button w-full bg-green-500 hover:bg-green-600 text-gray-900 font-bold py-3 px-6 rounded-lg text-lg shadow-lg">
+                I'm Convinced. Master My Track Now!
+            </button>
+        </div>
+
+    </section>
+
+    <!-- Value Proposition / Benefits Section (Responsive Grid) -->
+    <section class="w-full max-w-4xl text-center mb-12">
+        <h2 class="text-3xl font-bold text-gray-100 mb-6">What We Fix in the Master</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <!-- Benefit Cards Stack Vertically on Mobile (cols-1) and become three columns on small screens (sm:cols-3) -->
+            <!-- Benefit 1: Loudness -->
+            <div class="bg-gray-800 p-6 rounded-xl border-t-4 border-indigo-500 shadow-xl">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-indigo-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H1.99a.99.99 0 01-.707-1.707l3.707-3.707a.99.99 0 011.707.707v1.517zM12 11a1 1 0 110 2 1 1 0 010-2z" />
+                </svg>
+                <h3 class="text-xl font-semibold mb-2">Commercial Loudness</h3>
+                <p class="text-gray-400 text-sm">Targeted $-14\text{ LUFS}$ for Spotify/Apple Music compliance, ensuring your track isn't quietly turned down by streaming algorithms.</p>
+            </div>
+            <!-- Benefit 2: Clarity -->
+            <div class="bg-gray-800 p-6 rounded-xl border-t-4 border-indigo-500 shadow-xl">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-indigo-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 class="text-xl font-semibold mb-2">Tonal Balance</h3>
+                <p class="text-gray-400 text-sm">Correcting subtle frequency imbalances and adding analog warmth to make the low-end punch and the high-end sparkle.</p>
+            </div>
+            <!-- Benefit 3: Translation -->
+            <div class="bg-gray-800 p-6 rounded-xl border-t-4 border-indigo-500 shadow-xl">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-indigo-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1v-3m0 0l-3-3m0 0l-3 3m3-3V9m-6 11h12a2 2 0 002-2v-6a2 2 0 00-2-2H9.75M9 8h4" />
+                </svg>
+                <h3 class="text-xl font-semibold mb-2">Perfect Translation</h3>
+                <p class="text-gray-400 text-sm">Professional A/B testing on over 20 devices to guarantee your track sounds massive everywhere—from clubs to earbuds.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="w-full max-w-4xl text-center mb-12 py-8 bg-gray-900 rounded-xl shadow-inner">
+        <h2 class="text-3xl font-bold text-pink-400 mb-4">Trusted by Independent Artists</h2>
+        <p class="text-gray-400 text-lg mb-8 max-w-2xl mx-auto">Don't just take our word for it—read what our clients say about the masters that launched their streaming careers.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 px-4">
+            
+            <!-- Testimonial 1 -->
+            <div class="bg-gray-800 p-6 rounded-lg text-left">
+                <div class="text-lg font-bold mb-2">
+                    <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+                </div>
+                <p class="text-gray-300 italic mb-4">"I sent in a mix I thought was ready, and the master they sent back blew me away. The low-end punch is exactly what I was missing. Ready for radio!"</p>
+                <p class="text-sm font-semibold text-indigo-400">— Jaxon P., Producer</p>
+            </div>
+
+            <!-- Testimonial 2 (Central Highlight) -->
+            <div class="bg-indigo-900/50 p-6 rounded-lg text-left ring-2 ring-indigo-500 transform scale-105 shadow-xl">
+                <div class="text-xl font-extrabold mb-2">
+                    <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span> 
+                    <span class="ml-2 text-sm">(A+ Rating)</span>
+                </div>
+                <p class="text-white italic mb-4">"The best decision I made for my album. The consistency between tracks is flawless, and the loudness levels are perfect for every streaming service. Highly recommended."</p>
+                <p class="text-base font-semibold text-pink-400">— Elara V., Indie Artist</p>
+            </div>
+
+            <!-- Testimonial 3 -->
+            <div class="bg-gray-800 p-6 rounded-lg text-left">
+                <div class="text-lg font-bold mb-2">
+                    <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+                </div>
+                <p class="text-gray-300 italic mb-4">"The 'before' vs 'after' demo on this page doesn't lie. My track finally sounds competitive and bright without sounding harsh. Game changer."</p>
+                <p class="text-sm font-semibold text-indigo-400">— DJ LEO, Electronic Music</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final Call to Action -->
+    <footer class="w-full max-w-4xl text-center pt-8 border-t border-gray-700">
+        <h2 class="text-3xl font-bold text-indigo-400 mb-4">Ready to Launch Your Career?</h2>
+        <p class="text-gray-300 text-lg mb-6">Stop uploading "good" mixes. Get the commercial edge that separates the pros from the amateurs.</p>
+        <button onclick="openModal()" id="cta-footer" class="cta-button bg-pink-600 hover:bg-pink-700 text-white font-extrabold py-4 px-10 rounded-xl text-xl shadow-2xl tracking-wide">
+            Book Your Free Demo Master
+        </button>
+        <p class="text-sm text-gray-500 mt-4">User ID: <span id="displayUserId">...</span></p>
+    </footer>
+
+    <!-- MODAL FOR MASTER REQUEST SUBMISSION -->
+    <div id="submissionModal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50 transition-opacity duration-300">
+        <div class="bg-gray-800 w-full max-w-lg rounded-xl p-6 sm:p-8 shadow-2xl border-t-4 border-pink-500 relative">
+            
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            
+            <h3 class="text-2xl font-bold text-pink-400 mb-2">Request Your Free Demo Master</h3>
+            <p class="text-gray-400 mb-6">Submit your track details and link. We'll send you a mastered snippet for comparison.</p>
+
+            <form onsubmit="submitMasterRequest(event)">
+                
+                <div class="mb-4">
+                    <label for="trackName" class="block text-sm font-medium text-gray-300 mb-1">Track Name (Required)</label>
+                    <input type="text" id="trackName" name="trackName" required class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 text-white">
+                </div>
+
+                <div class="mb-4">
+                    <label for="artistName" class="block text-sm font-medium text-gray-300 mb-1">Artist/Project Name (Required)</label>
+                    <input type="text" id="artistName" name="artistName" required class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 text-white">
+                </div>
+
+                <div class="mb-4">
+                    <label for="email" class="block text-sm font-medium text-gray-300 mb-1">Email Address (Required)</label>
+                    <input type="email" id="email" name="email" required class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 text-white">
+                </div>
+
+                <div class="mb-6">
+                    <label for="mixLink" class="block text-sm font-medium text-gray-300 mb-1">Mix Link (e.g., Dropbox, Google Drive, SoundCloud Private) (Required)</label>
+                    <input type="url" id="mixLink" name="mixLink" placeholder="https://" required class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 text-white">
+                </div>
+                
+                <div class="mb-6">
+                    <label for="notes" class="block text-sm font-medium text-gray-300 mb-1">Mastering Notes (Optional)</label>
+                    <textarea id="notes" name="notes" rows="3" class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 text-white" placeholder="Reference tracks, specific loudness targets, genre details, etc."></textarea>
+                </div>
+
+                <button type="submit" class="w-full cta-button bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg text-lg shadow-lg">
+                    Submit Request
+                </button>
+            </form>
+        </div>
+    </div>
+    <!-- END MODAL -->
+
+    <!-- JavaScript for the Interactive Audio Demo and User ID Display -->
+    <script>
+        // =========================================================================
+        // IMPORTANT: REPLACE THESE WITH YOUR ACTUAL HOSTED AUDIO FILE URLs (.mp3 or .wav)
+        // =========================================================================
+        const audioUrls = {
+            mixed: 'https://cdn.your-mastering-service.com/audio/neon-rush-mixed-low-lufs.mp3', 
+            mastered: 'https://cdn.your-mastering-service.com/audio/neon-rush-mastered-loud-lufs.mp3'
+        };
+
+        const state = {
+            isMastered: false,
+            isPlaying: false,
+            currentUrl: audioUrls.mixed
+        };
+
+        // DOM Elements
+        const toggleButton = document.getElementById('toggleButton');
+        const playPauseButton = document.getElementById('playPauseButton');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const volumeMeter = document.getElementById('volumeMeter');
+        const currentLabel = document.getElementById('currentLabel');
+        const masterVolume = document.getElementById('masterVolume');
+
+        let playbackInterval = null;
+
+        function updateUI() {
+            // Update Toggle Button Text
+            if (state.isMastered) {
+                toggleButton.textContent = 'SWITCH TO: MIXED (BEFORE)';
+                toggleButton.classList.remove('bg-indigo-600');
+                toggleButton.classList.add('bg-yellow-600');
+                currentLabel.textContent = 'Current: MASTERED (AFTER)';
+                currentLabel.classList.remove('text-yellow-400');
+                currentLabel.classList.add('text-indigo-400');
+            } else {
+                toggleButton.textContent = 'SWITCH TO: MASTERED (AFTER)';
+                toggleButton.classList.remove('bg-yellow-600');
+                toggleButton.classList.add('bg-indigo-600');
+                currentLabel.textContent = 'Current: MIXED (BEFORE)';
+                currentLabel.classList.remove('text-indigo-400');
+                currentLabel.classList.add('text-yellow-400');
+            }
+
+            // Update Play/Pause Icons
+            playIcon.classList.toggle('hidden', state.isPlaying);
+            pauseIcon.classList.toggle('hidden', !state.isPlaying);
+        }
+
+        // Simulates the volume meter movement to demonstrate dynamic range difference
+        function startPlaybackSimulation() {
+            if (playbackInterval) clearInterval(playbackInterval);
+
+            // Mastered audio is louder (higher baseLevel) and less dynamic (smaller variance)
+            const baseLevel = state.isMastered ? 80 : 50; 
+            const variance = state.isMastered ? 10 : 20; 
+
+            let level = baseLevel;
+            playbackInterval = setInterval(() => {
+                const time = Date.now() / 200;
+                level = baseLevel + Math.sin(time) * variance;
+                
+                const clampedLevel = Math.min(100, Math.max(0, level));
+                volumeMeter.style.width = `${clampedLevel}%`;
+                
+                if (clampedLevel > 85) {
+                    volumeMeter.classList.add('bg-red-500');
+                    volumeMeter.classList.remove('bg-red-800');
+                } else {
+                    volumeMeter.classList.remove('bg-red-500');
+                    volumeMeter.classList.add('bg-red-800');
+                }
+            }, 50); 
+        }
+
+        function stopPlaybackSimulation() {
+            if (playbackInterval) clearInterval(playbackInterval);
+            volumeMeter.style.width = '0%'; 
+            volumeMeter.classList.remove('bg-red-500');
+            volumeMeter.classList.add('bg-red-800');
+        }
+
+        // --- Event Listeners ---
+
+        toggleButton.addEventListener('click', () => {
+            state.isMastered = !state.isMastered;
+            state.currentUrl = state.isMastered ? audioUrls.mastered : audioUrls.mixed;
+            updateUI();
+            
+            if (state.isPlaying) {
+                startPlaybackSimulation();
+            }
+        });
+
+        playPauseButton.addEventListener('click', () => {
+            state.isPlaying = !state.isPlaying;
+            updateUI();
+
+            if (state.isPlaying) {
+                startPlaybackSimulation();
+            } else {
+                stopPlaybackSimulation();
+            }
+        });
+
+        masterVolume.addEventListener('input', (e) => {
+            // Placeholder: In a real app, this controls the AudioContext gain node
+        });
+        
+        window.addEventListener('load', () => {
+            updateUI();
+            
+            // Display User ID once Firebase is ready
+            const checkAuth = setInterval(() => {
+                if (window.isFirebaseReady) {
+                    document.getElementById('displayUserId').textContent = window.userId;
+                    clearInterval(checkAuth);
+                }
+            }, 100);
+        });
+        
+    </script>
+</body>
+</html>
